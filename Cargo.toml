@@ -1,0 +1,53 @@
+[package]
+name = "sonora"
+version = "0.3.0"
+edition = "2021"
+description = "Sonora : lecteur audio léger en Rust (Win32 + Symphonia) avec décodeur libopus intégré"
+build = "build.rs"
+
+[dependencies]
+# Décodage / démuxage Rust : uniquement les formats réellement utilisés.
+symphonia = { version = "0.5.5", default-features = false, features = [
+    "mp3", "wav", "pcm", "isomp4", "aac", "mkv", "ogg", "vorbis",
+] }
+# Sortie audio (WASAPI sous Windows)
+cpal = "0.15"
+# Tampon circulaire sans verrou : décodeur -> carte son
+ringbuf = "0.4"
+
+[target.'cfg(windows)'.dependencies]
+windows-sys = { version = "0.59", features = [
+    "Win32_Foundation",
+    "Win32_Graphics_Dwm",
+    "Win32_Graphics_Gdi",
+    "Win32_System_LibraryLoader",
+    "Win32_System_Threading",
+    "Win32_System_SystemServices",
+    "Win32_UI_Controls",
+    "Win32_UI_Controls_Dialogs",
+    "Win32_UI_HiDpi",
+    "Win32_UI_Input_KeyboardAndMouse",
+    "Win32_UI_WindowsAndMessaging",
+] }
+
+[build-dependencies]
+cc = "1"
+embed-resource = "2"
+# Compression des PNG de l'icône générée au build (aucun effet sur l'exe)
+miniz_oxide = { version = "0.8", default-features = false, features = ["with-alloc"] }
+
+# Copies de Symphonia 0.5.5 allégées (voir vendor/symphonia/*) : mêmes fonctionnalités de lecture,
+# sans les tables FFT jamais utilisées ni encoding_rs (étiquettes de métadonnées non lues).
+[patch.crates-io]
+symphonia-core = { path = "vendor/symphonia/core" }
+symphonia-metadata = { path = "vendor/symphonia/metadata" }
+symphonia-format-isomp4 = { path = "vendor/symphonia/format-isomp4" }
+
+[profile.release]
+# Taille minimale : le décodage et le rééchantillonnage restent à 0,1-1 % d'un cœur (mesuré).
+opt-level = "s"
+lto = "fat"
+codegen-units = 1
+strip = true
+debug = false
+panic = "unwind"
